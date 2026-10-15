@@ -1,0 +1,5 @@
+Collecting typing-extensions
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Installing collected packages: typing-extensions
+Successfully installed typing-extensions-4.16.0
