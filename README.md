@@ -1,4 +1,4 @@
-# 🛡️ Wallet Firewall
+# 🧱 Wallet Firewall
 
 > **Know what you're signing before you sign it.**
 
@@ -18,6 +18,20 @@ A deterministic security layer that analyzes EVM transactions **before** the use
 | **Gate** | Disables the sign button when verdict is BLOCK |
 
 ---
+
+## Screenshots
+
+![Safe verdict](./screenshots/safe_verdict.jpg)
+*Standard ETH transfer — scored SAFE (5/100).*
+
+![Review verdict](./screenshots/review_verdict.jpg)
+*Multicall detected — scored REVIEW (30/100).*
+
+![Block verdict](./screenshots/block_verdict.jpg)
+*Unlimited ERC20 approval — hard blocked (100/100).*
+
+![Approve verdict](./screenshots/approve_verdict.jpg)
+*ERC20 approval — flagged for review.*
 
 ## Architecture
 
@@ -145,6 +159,3 @@ Visit `http://localhost:3000`
 
 MIT
 
----
-
-*Built on Termux, deployed on hope.*
