@@ -3,7 +3,7 @@ import { sepolia } from "wagmi/chains";
 import { injected } from "wagmi/connectors/injected";
 import { walletConnect } from "wagmi/connectors/walletConnect";
 
-const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID;
+const projectId = "5f29bbc58e196a09b032d0251fb7688d";
 
 if (!projectId) {
   console.warn("WARNING: NEXT_PUBLIC_WC_PROJECT_ID is missing from .env.local");

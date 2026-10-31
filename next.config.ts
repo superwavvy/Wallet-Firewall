@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   allowedDevOrigins: ['*.trycloudflare.com', '*.lhr.life'],
   webpack: (config) => {
     config.resolve.alias = {

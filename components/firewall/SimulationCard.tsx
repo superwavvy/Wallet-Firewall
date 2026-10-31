@@ -10,7 +10,7 @@ export function SimulationCard({ result }: { result: any }) {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-gray-400 uppercase tracking-wider">Simulation Result</h3>
         <span className={`font-bold ${result.success ? 'text-green-400' : 'text-red-500'}`}>
-          {result.success ? 'PASSED' : 'REVERTED'}
+          {result.success ? 'PASSED' : result.reverted === false ? 'UNAVAILABLE' : 'REVERTED'}
         </span>
       </div>
       <div className="bg-gray-900 p-3 border border-gray-800 text-xs overflow-x-auto">

@@ -71,11 +71,13 @@ export function TransactionBuilder() {
     const contractIntel = await getContractIntel(client, payload.to);
     setIntel(contractIntel);
 
-    const report = analyzeRisk(payload, decoded, contractIntel);
-    setRiskReport(report);
+    const senderIntel = address ? await getContractIntel(client, address) : null;
 
     const simResult = await simulateTransaction(client, payload, address);
     setSimulation(simResult);
+
+    const report = analyzeRisk(payload, decoded, contractIntel, senderIntel, simResult);
+    setRiskReport(report);
     
     setLoading(false);
   };

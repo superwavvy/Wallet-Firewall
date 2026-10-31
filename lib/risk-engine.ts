@@ -13,10 +13,28 @@ export interface RiskReport {
   signals: RiskSignal[];
 }
 
-export function analyzeRisk(rawTx: any, decodedTx: any, intel: any): RiskReport {
+// Delegate contracts you have vetted (lowercase). Empty = every delegation is unverified.
+const KNOWN_DELEGATES: string[] = [];
+
+const isKnownDelegate = (addr: string) => KNOWN_DELEGATES.includes(addr.toLowerCase());
+
+export function analyzeRisk(rawTx: any, decodedTx: any, intel: any, senderIntel?: any, simulation?: any): RiskReport {
   const signals: RiskSignal[] = [];
   let score = 0;
   let isHardBlock = false;
+
+  // 0. Fail-safe: if we could not inspect the target, never report SAFE
+  if (!intel || intel.error) {
+    signals.push({
+      severity: 'MEDIUM',
+      scoreContribution: 30,
+      isHardBlock: false,
+      explanation: 'Could not fetch information about the target address.',
+      evidence: intel?.error ?? 'Target address is invalid or intel is unavailable.',
+      recommendation: 'Do not sign until the target can be inspected.'
+    });
+    score += 30;
+  }
 
   // 1. Native Transfer Check
   if (decodedTx.type === 'NATIVE_TRANSFER' && BigInt(rawTx.value) > 0n) {
@@ -58,9 +76,89 @@ export function analyzeRisk(rawTx: any, decodedTx: any, intel: any): RiskReport 
     isHardBlock = true;
   }
 
+  // 3b. Target is a 7702-delegated account
+  if (intel && intel.isDelegated) {
+    signals.push({
+      severity: 'HIGH',
+      scoreContribution: 35,
+      isHardBlock: false,
+      explanation: 'Target is an EOA delegated via EIP-7702. Its behavior is controlled by another contract.',
+      evidence: `Delegated to ${intel.delegateAddress}`,
+      recommendation: 'Verify the delegate contract before interacting.'
+    });
+    score += 35;
+  }
+
+  // 3c. Sender (the user's own wallet) is already delegated
+  if (senderIntel && senderIntel.isDelegated) {
+    signals.push({
+      severity: 'HIGH',
+      scoreContribution: 35,
+      isHardBlock: false,
+      explanation: 'Your own wallet is currently delegated to a contract (EIP-7702).',
+      evidence: `Delegated to ${senderIntel.delegateAddress}`,
+      recommendation: 'If you do not recognize this delegate, treat the wallet as compromised and move funds.'
+    });
+    score += 35;
+  }
+
+  // 3d. Transaction carries EIP-7702 authorizations
+  const auths: any[] = Array.isArray(rawTx.authorizationList) ? rawTx.authorizationList : [];
+  for (const auth of auths) {
+    const delegate = String(auth.address ?? '');
+    if (!isKnownDelegate(delegate)) {
+      signals.push({
+        severity: 'CRITICAL',
+        scoreContribution: 100,
+        isHardBlock: true,
+        explanation: 'EIP-7702 authorization to an unverified contract. It can give that contract full control of your account.',
+        evidence: `Delegate: ${delegate}`,
+        recommendation: 'DO NOT SIGN unless you deployed or fully trust this delegate.'
+      });
+      score = 100;
+      isHardBlock = true;
+    }
+    if (Number(auth.chainId) === 0) {
+      signals.push({
+        severity: 'HIGH',
+        scoreContribution: 30,
+        isHardBlock: false,
+        explanation: 'Authorization uses chainId 0, so it is valid on every chain.',
+        evidence: 'chainId: 0',
+        recommendation: 'Prefer authorizations scoped to a single chain.'
+      });
+      score += 30;
+    }
+  }
+
+  // 3e. Simulation result (only when a simulation was actually run)
+  if (simulation && !simulation.success) {
+    if (simulation.reverted) {
+      signals.push({
+        severity: 'HIGH',
+        scoreContribution: 40,
+        isHardBlock: false,
+        explanation: 'Simulation shows this transaction would fail on-chain.',
+        evidence: simulation.error ?? 'Reverted',
+        recommendation: 'Signing will likely waste gas. Check the target, amount and calldata.'
+      });
+      score += 40;
+    } else {
+      signals.push({
+        severity: 'MEDIUM',
+        scoreContribution: 30,
+        isHardBlock: false,
+        explanation: 'Simulation could not be completed, so the outcome is unknown.',
+        evidence: simulation.error ?? 'Simulation unavailable',
+        recommendation: 'Retry the analysis before signing.'
+      });
+      score += 30;
+    }
+  }
+
   // 4. Contract Call Analysis
   if (decodedTx.type === 'CONTRACT_CALL') {
-    
+
     // Unlimited Approval (ERC20)
     if (decodedTx.selector === '0x095ea7b3') {
       const calldata = rawTx.data.toLowerCase();
