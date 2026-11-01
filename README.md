@@ -27,20 +27,6 @@ No wallet needed: tap a one-tap test case (**Safe transfer**, **Unlimited approv
 
 ---
 
-## Screenshots
-
-![Safe verdict](./screenshots/safe_verdict.jpg)
-*Standard ETH transfer — scored SAFE (5/100).*
-
-![Review verdict](./screenshots/review_verdict.jpg)
-*Multicall detected — scored REVIEW (30/100).*
-
-![Block verdict](./screenshots/block_verdict.jpg)
-*Unlimited ERC20 approval — hard blocked (100/100).*
-
-![Approve verdict](./screenshots/approve_verdict.jpg)
-*ERC20 approval — flagged for review.*
-
 ## Architecture
 
     Wallet -> Transaction -> Decoder -> Contract Intel -> Simulation
