@@ -2,24 +2,47 @@
 
 import { useState } from 'react';
 import { isAddress, parseEther } from 'viem';
-import { useAccount, useSendTransaction } from 'wagmi';
+import { useAccount, useChainId, useSendTransaction } from 'wagmi';
+import { sepolia } from 'wagmi/chains';
 import { decodeTransaction } from '@/lib/decoder';
 import { getContractIntel } from '@/lib/contract-intel';
 import { analyzeRisk, RiskReport } from '@/lib/risk-engine';
 import { simulateTransaction } from '@/lib/simulator';
-import { sepoliaClient, mainnetClient } from '@/lib/blockchain/rpc';
+import { sepoliaClient, mainnetClient, SEPOLIA_USDC } from '@/lib/blockchain/rpc';
 import { ContractIntel } from './ContractIntel';
 import { RiskReportCard } from './RiskReportCard';
 import { SimulationCard } from './SimulationCard';
 
+type TxPayload = {
+  to: string;
+  value: string;
+  data: string;
+  authorizationList?: { address: string; chainId: number }[];
+};
+
+// Placeholder sender used when no wallet is connected (demo mode)
+const DEMO_SENDER = '0x000000000000000000000000000000000000dead';
+
+const SPENDER = '1111111111111111111111111111111111111111';
+const MAX_UINT = 'f'.repeat(64);
+
+// value is in ETH here (same format as the input field)
+const PRESETS: { label: string; tx: TxPayload }[] = [
+  { label: 'Safe transfer', tx: { to: '0x1111111111111111111111111111111111111111', value: '0.001', data: '' } },
+  { label: 'Unlimited approval', tx: { to: SEPOLIA_USDC, value: '0', data: '0x095ea7b3' + '0'.repeat(24) + SPENDER + MAX_UINT } },
+  { label: 'Calldata to EOA', tx: { to: '0x2222222222222222222222222222222222222222', value: '0', data: '0xdeadbeef' } },
+  { label: '7702 authorization', tx: { to: '0x1111111111111111111111111111111111111111', value: '0', data: '', authorizationList: [{ address: '0x3333333333333333333333333333333333333333', chainId: 0 }] } },
+];
+
 export function TransactionBuilder() {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { sendTransaction, isPending: isSending, error: sendError, data: txHash } = useSendTransaction();
   const [network, setNetwork] = useState<'sepolia' | 'mainnet'>('sepolia');
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
   const [data, setData] = useState('');
-  const [rawTx, setRawTx] = useState<{to: string, value: string, data: string} | null>(null);
+  const [rawTx, setRawTx] = useState<TxPayload | null>(null);
   const [decodedTx, setDecodedTx] = useState<any>(null);
   const [intel, setIntel] = useState<any>(null);
   const [riskReport, setRiskReport] = useState<RiskReport | null>(null);
@@ -27,7 +50,10 @@ export function TransactionBuilder() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleInspect = async () => {
+  const demo = !address;
+  const wrongChain = !!address && chainId !== sepolia.id;
+
+  const inspect = async (input: TxPayload, net: 'sepolia' | 'mainnet' = network) => {
     setError('');
     setDecodedTx(null);
     setIntel(null);
@@ -35,13 +61,7 @@ export function TransactionBuilder() {
     setSimulation(null);
     setLoading(true);
 
-    if (!address) {
-      setError('Wallet not connected.');
-      setLoading(false);
-      return;
-    }
-
-    if (!isAddress(to)) {
+    if (!isAddress(input.to)) {
       setError('Invalid recipient address.');
       setLoading(false);
       return;
@@ -49,37 +69,48 @@ export function TransactionBuilder() {
 
     let valueInWei = '0';
     try {
-      if (value) valueInWei = parseEther(value).toString();
+      if (input.value) valueInWei = parseEther(input.value).toString();
     } catch (e) {
       setError('Invalid ETH amount.');
       setLoading(false);
       return;
     }
 
-    let sanitizedData = data.trim();
+    let sanitizedData = input.data.trim();
     if (sanitizedData && !sanitizedData.startsWith('0x')) sanitizedData = '0x' + sanitizedData;
     if (sanitizedData === '0x') sanitizedData = '';
 
-    const payload = { to, value: valueInWei, data: sanitizedData };
+    const payload: TxPayload = { to: input.to, value: valueInWei, data: sanitizedData };
+    if (input.authorizationList) payload.authorizationList = input.authorizationList;
     setRawTx(payload);
 
     const decoded = decodeTransaction(payload);
     setDecodedTx(decoded);
 
-    const client = network === 'sepolia' ? sepoliaClient : mainnetClient;
+    const client = net === 'sepolia' ? sepoliaClient : mainnetClient;
 
     const contractIntel = await getContractIntel(client, payload.to);
     setIntel(contractIntel);
 
     const senderIntel = address ? await getContractIntel(client, address) : null;
 
-    const simResult = await simulateTransaction(client, payload, address);
+    const simResult = await simulateTransaction(client, payload, address ?? DEMO_SENDER, { fundSender: demo });
     setSimulation(simResult);
 
     const report = analyzeRisk(payload, decoded, contractIntel, senderIntel, simResult);
     setRiskReport(report);
-    
+
     setLoading(false);
+  };
+
+  const handleInspect = () => inspect({ to, value, data });
+
+  const runPreset = (tx: TxPayload) => {
+    setNetwork('sepolia');
+    setTo(tx.to);
+    setValue(tx.value);
+    setData(tx.data);
+    inspect(tx, 'sepolia');
   };
 
   const handleSign = () => {
@@ -92,6 +123,7 @@ export function TransactionBuilder() {
     }
 
     sendTransaction({
+      chainId: sepolia.id,
       to: rawTx.to as `0x${string}`,
       value: BigInt(rawTx.value),
       data: rawTx.data as `0x${string}`,
@@ -114,6 +146,26 @@ export function TransactionBuilder() {
         </select>
       </div>
       
+      {demo && (
+        <p className="text-[11px] text-gray-500 mb-4">
+          Demo mode: no wallet connected. Analysis works; connect a wallet to sign on Sepolia.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-gray-500 text-xs">Try:</span>
+        {PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => runPreset(p.tx)}
+            disabled={loading || isSending}
+            className="border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:border-gray-400 disabled:opacity-50"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-4">
         <div>
           <label className="block text-gray-500 mb-1">To Address</label>
@@ -148,10 +200,12 @@ export function TransactionBuilder() {
         <div className="mt-6">
           <button 
             onClick={handleSign}
-            disabled={isBlocked || loading || isSending}
+            disabled={isBlocked || loading || isSending || demo || wrongChain}
             className={`w-full font-bold p-4 uppercase tracking-widest transition-colors ${
               isBlocked 
                 ? 'bg-red-950 border-2 border-red-800 text-red-500 cursor-not-allowed' 
+                : demo || wrongChain
+                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 : isSending
                 ? 'bg-yellow-600 text-black cursor-wait'
                 : 'bg-green-600 text-black hover:bg-green-500'
@@ -159,6 +213,10 @@ export function TransactionBuilder() {
           >
             {isBlocked 
               ? '🚫 BLOCKED BY FIREWALL' 
+              : wrongChain
+              ? 'Switch wallet to Sepolia to sign'
+              : demo
+              ? 'Connect a wallet to sign'
               : isSending 
               ? '⏳ CONFIRM IN WALLET...' 
               : 'Proceed to Sign →'}
@@ -187,24 +245,24 @@ export function TransactionBuilder() {
       )}
 
       {rawTx && (
-        <div className="mt-8 border-t border-gray-800 pt-6">
-          <h3 className="text-gray-500 mb-2 uppercase tracking-wider text-xs">Raw Payload</h3>
-          <div className="bg-gray-950 p-3 border border-gray-800 overflow-x-auto text-[10px] text-gray-500">
+        <details className="mt-8 border-t border-gray-800 pt-6">
+          <summary className="cursor-pointer text-gray-500 uppercase tracking-wider text-xs">Details: Raw Payload</summary>
+          <div className="mt-2 bg-gray-950 p-3 border border-gray-800 overflow-x-auto text-[10px] text-gray-500">
             <pre>{JSON.stringify(rawTx, null, 2)}</pre>
           </div>
-        </div>
+        </details>
       )}
 
       {decodedTx && (
-        <div className="mt-4 border-t border-gray-800 pt-6">
-          <h3 className="text-gray-500 mb-2 uppercase tracking-wider text-xs">Decoded Output</h3>
-          <div className="bg-gray-950 p-3 border border-gray-800 overflow-x-auto text-[10px] text-gray-500">
+        <details className="mt-4 border-t border-gray-800 pt-6">
+          <summary className="cursor-pointer text-gray-500 uppercase tracking-wider text-xs">Details: Decoded Output</summary>
+          <div className="mt-2 bg-gray-950 p-3 border border-gray-800 overflow-x-auto text-[10px] text-gray-500">
             <pre>{JSON.stringify(decodedTx, null, 2)}</pre>
           </div>
-        </div>
+        </details>
       )}
 
-      {intel && <ContractIntel address={intel.address} />}
+      {intel && <ContractIntel intel={intel} />}
     </div>
   );
 }

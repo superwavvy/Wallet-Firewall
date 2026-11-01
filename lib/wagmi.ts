@@ -1,5 +1,5 @@
 import { createConfig, http } from "wagmi";
-import { sepolia } from "wagmi/chains";
+import { sepolia, mainnet } from "wagmi/chains";
 import { injected } from "wagmi/connectors/injected";
 import { walletConnect } from "wagmi/connectors/walletConnect";
 
@@ -10,7 +10,7 @@ if (!projectId) {
 }
 
 export const wagmiConfig = createConfig({
-  chains: [sepolia],
+  chains: [sepolia, mainnet],
   connectors: [
     injected(),
     walletConnect({ 
@@ -26,8 +26,9 @@ export const wagmiConfig = createConfig({
   ],
   transports: {
     [sepolia.id]: http(process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL),
+    [mainnet.id]: http(process.env.NEXT_PUBLIC_MAINNET_RPC_URL),
   },
-  ssz: true,
+  ssr: true,
 });
 
 declare module "wagmi" {

@@ -1,3 +1,4 @@
+import { DebugPanel } from '@/components/DebugPanel';
 import { ConnectButton } from '@/components/wallet/ConnectButton';
 import { WalletGate } from '@/components/wallet/WalletGate';
 import { BalanceCard } from '@/components/wallet/BalanceCard';
@@ -24,17 +25,18 @@ export default function Home() {
           </p>
         </div>
 
-        <WalletGate>
-          <div className="w-full flex flex-col items-center">
+        <div className="w-full flex flex-col items-center">
+          <WalletGate fallback={null}>
             <BalanceCard />
-            <TransactionBuilder />
-          </div>
-        </WalletGate>
+          </WalletGate>
+          <TransactionBuilder />
+        </div>
       </main>
 
       <footer className="border-t border-gray-800 p-6 text-center text-xs text-gray-600 tracking-widest uppercase">
         Never store private keys. Never sign transactions server-side.
       </footer>
+      <DebugPanel />
     </div>
   );
 }

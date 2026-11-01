@@ -1,6 +1,7 @@
 "use client";
 
 import { useBalance, useReadContract, useAccount } from "wagmi";
+import { sepolia } from "wagmi/chains";
 import { formatUnits } from "viem";
 import { SEPOLIA_USDC, USDC_DECIMALS } from "@/lib/blockchain/rpc";
 
@@ -19,11 +20,13 @@ export function BalanceCard() {
 
   const { data: ethBalance, isLoading: ethLoading } = useBalance({
     address,
+    chainId: sepolia.id,
     query: { refetchInterval: 30_000 },
   });
 
   const { data: usdcBalance, isLoading: usdcLoading } = useReadContract({
     address: SEPOLIA_USDC,
+    chainId: sepolia.id,
     abi: ERC20_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,

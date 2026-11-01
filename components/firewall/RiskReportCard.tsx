@@ -45,7 +45,7 @@ export function RiskReportCard({ report }: { report: RiskReport }) {
         });
         const data = await res.json();
         if (data.explanation) { setAiExplanation(data.explanation); setAiProvider(data.provider || null); }
-        else setAiExplanation("AI explanation unavailable.");
+        else setAiExplanation(data.error ? `AI explanation unavailable (${data.error}).` : "AI explanation unavailable.");
       } catch (e) {
         setAiExplanation("AI explanation unavailable.");
       }
@@ -107,7 +107,7 @@ export function RiskReportCard({ report }: { report: RiskReport }) {
         )}
 
         {/* AI explanation second, collapsed: it explains, it never decides */}
-        <details className="mt-4 bg-black/40 border border-gray-800 rounded p-3">
+        <details open className="mt-4 bg-black/40 border border-gray-800 rounded p-3">
           <summary className="cursor-pointer list-none text-gray-400 uppercase tracking-wider text-[10px] flex items-center gap-2">
             <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
             AI Explainer {aiProvider && <span className="text-cyan-600">[{aiProvider}]</span>}

@@ -1,24 +1,4 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { getContractIntel } from '@/lib/contract-intel';
-
-export function ContractIntel({ address }: { address: string }) {
-  const [intel, setIntel] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    async function fetchIntel() {
-      if (!address) return;
-      setLoading(true);
-      const data = await getContractIntel(address);
-      setIntel(data);
-      setLoading(false);
-    }
-    fetchIntel();
-  }, [address]);
-
-  if (loading) return <div className="text-gray-500 text-xs mt-4 font-mono">Fetching contract intel...</div>;
+export function ContractIntel({ intel }: { intel: any }) {
   if (!intel) return null;
 
   return (
