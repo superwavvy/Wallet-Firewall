@@ -3,7 +3,7 @@ export function decodeTransaction(tx: { to: string; value: string; data: string 
     return { type: 'NATIVE_TRANSFER', value: tx.value };
   }
 
-  const selector = tx.data.slice(0, 10);
+  const selector = tx.data.slice(0, 10).toLowerCase();
   
   const selectorMap: Record<string, string> = {
     // Standard ERC20

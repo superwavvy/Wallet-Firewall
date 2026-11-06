@@ -23,21 +23,22 @@ export function analyzeRisk(rawTx: any, decodedTx: any, intel: any, senderIntel?
   let score = 0;
   let isHardBlock = false;
 
-  // 0. Fail-safe: if we could not inspect the target, never report SAFE
+  // 0. Fail-safe: if we could not inspect the target, block. Never fail open.
   if (!intel || intel.error) {
     signals.push({
-      severity: 'MEDIUM',
-      scoreContribution: 30,
-      isHardBlock: false,
+      severity: 'CRITICAL',
+      scoreContribution: 100,
+      isHardBlock: true,
       explanation: 'Could not fetch information about the target address.',
       evidence: intel?.error ?? 'Target address is invalid or intel is unavailable.',
       recommendation: 'Do not sign until the target can be inspected.'
     });
-    score += 30;
+    score = 100;
+    isHardBlock = true;
   }
 
   // 1. Native Transfer Check
-  if (decodedTx.type === 'NATIVE_TRANSFER' && BigInt(rawTx.value) > 0n) {
+  if (decodedTx.type === 'NATIVE_TRANSFER' && BigInt(rawTx.value ?? 0) > 0n) {
     signals.push({
       severity: 'LOW',
       scoreContribution: 5,
@@ -188,6 +189,20 @@ export function analyzeRisk(rawTx: any, decodedTx: any, intel: any, senderIntel?
           score += 25;
         }
       }
+    }
+
+    // Permit2 approve: 0x87517c45 -> approve(address,address,uint160,uint48).
+    // Grants a spender an allowance through Permit2 - the pattern in most approval-drainer thefts.
+    if (decodedTx.selector === '0x87517c45') {
+      signals.push({
+        severity: 'MEDIUM',
+        scoreContribution: 30,
+        isHardBlock: false,
+        explanation: 'Permit2 approval detected. It grants a spender an allowance over your tokens.',
+        evidence: 'Permit2 approve (selector 0x87517c45)',
+        recommendation: 'Verify the spender and amount, and revoke unused Permit2 allowances.'
+      });
+      score += 30;
     }
 
     // Multicall (Hides multiple actions)
