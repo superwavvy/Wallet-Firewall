@@ -47,6 +47,7 @@ No wallet needed: tap a one-tap test case (**Safe transfer**, **Unlimited approv
 
 - Unknown selector: +40
 - ERC20 approval: +25
+- Permit2 approval (0x87517c45): +30
 - Multicall: +30
 - Permit / Permit2: +50
 - transferFrom: +50
